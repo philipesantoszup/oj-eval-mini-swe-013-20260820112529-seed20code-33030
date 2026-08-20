@@ -18,11 +18,6 @@ template<
    class Compare = std::less <Key>
    > class map {
   public:
-   /**
-  * the internal type of data.
-  * it should have a default constructor, a copy constructor.
-  * You can use sjtu::map as value_type by typedef.
-    */
    typedef pair<const Key, T> value_type;
 
   private:
@@ -108,18 +103,32 @@ template<
        int balance = getBalance(node);
 
        if (balance > 1 && comp(val.first, node->left->data.first)) {
-           return rotateRight(node);
+           Node* rotated = rotateRight(node);
+           if (rotated->left != nullptr) rotated->left->parent = rotated;
+           if (rotated->right != nullptr) rotated->right->parent = rotated;
+           return rotated;
        }
        if (balance < -1 && comp(node->right->data.first, val.first)) {
-           return rotateLeft(node);
+           Node* rotated = rotateLeft(node);
+           if (rotated->left != nullptr) rotated->left->parent = rotated;
+           if (rotated->right != nullptr) rotated->right->parent = rotated;
+           return rotated;
        }
        if (balance > 1 && comp(node->left->data.first, val.first)) {
            node->left = rotateLeft(node->left);
-           return rotateRight(node);
+           if (node->left != nullptr) node->left->parent = node;
+           Node* rotated = rotateRight(node);
+           if (rotated->left != nullptr) rotated->left->parent = rotated;
+           if (rotated->right != nullptr) rotated->right->parent = rotated;
+           return rotated;
        }
        if (balance < -1 && comp(val.first, node->right->data.first)) {
            node->right = rotateRight(node->right);
-           return rotateLeft(node);
+           if (node->right != nullptr) node->right->parent = node;
+           Node* rotated = rotateLeft(node);
+           if (rotated->left != nullptr) rotated->left->parent = rotated;
+           if (rotated->right != nullptr) rotated->right->parent = rotated;
+           return rotated;
        }
 
        return node;
@@ -160,13 +169,11 @@ template<
            if (node->left == nullptr || node->right == nullptr) {
                Node* temp = node->left ? node->left : node->right;
                if (temp == nullptr) {
-                   // No child case
                    temp = node;
                    node = nullptr;
                    delete temp;
                    size_--;
                } else {
-                   // One child case: replace node with temp
                    temp->parent = node->parent;
                    Node* toDelete = node;
                    node = temp;
@@ -174,12 +181,9 @@ template<
                    size_--;
                }
            } else {
-               // Two children case
                Node* temp = findMin(node->right);
-               // Copy temp's data to node using placement new
                node->data.~value_type();
                new (&node->data) value_type(temp->data);
-               // Delete temp
                node->right = deleteNode(node->right, temp->data.first);
                if (node->right != nullptr) {
                    node->right->parent = node;
@@ -196,53 +200,30 @@ template<
 
        if (balance > 1 && getBalance(node->left) >= 0) {
            Node* rotated = rotateRight(node);
-           if (rotated->left != nullptr) {
-               rotated->left->parent = rotated;
-           }
-           if (rotated->right != nullptr) {
-               rotated->right->parent = rotated;
-           }
+           if (rotated->left != nullptr) rotated->left->parent = rotated;
+           if (rotated->right != nullptr) rotated->right->parent = rotated;
            return rotated;
        }
-
        if (balance > 1 && getBalance(node->left) < 0) {
            node->left = rotateLeft(node->left);
-           if (node->left != nullptr) {
-               node->left->parent = node;
-           }
+           if (node->left != nullptr) node->left->parent = node;
            Node* rotated = rotateRight(node);
-           if (rotated->left != nullptr) {
-               rotated->left->parent = rotated;
-           }
-           if (rotated->right != nullptr) {
-               rotated->right->parent = rotated;
-           }
+           if (rotated->left != nullptr) rotated->left->parent = rotated;
+           if (rotated->right != nullptr) rotated->right->parent = rotated;
            return rotated;
        }
-
        if (balance < -1 && getBalance(node->right) <= 0) {
            Node* rotated = rotateLeft(node);
-           if (rotated->left != nullptr) {
-               rotated->left->parent = rotated;
-           }
-           if (rotated->right != nullptr) {
-               rotated->right->parent = rotated;
-           }
+           if (rotated->left != nullptr) rotated->left->parent = rotated;
+           if (rotated->right != nullptr) rotated->right->parent = rotated;
            return rotated;
        }
-
        if (balance < -1 && getBalance(node->right) > 0) {
            node->right = rotateRight(node->right);
-           if (node->right != nullptr) {
-               node->right->parent = node;
-           }
+           if (node->right != nullptr) node->right->parent = node;
            Node* rotated = rotateLeft(node);
-           if (rotated->left != nullptr) {
-               rotated->left->parent = rotated;
-           }
-           if (rotated->right != nullptr) {
-               rotated->right->parent = rotated;
-           }
+           if (rotated->left != nullptr) rotated->left->parent = rotated;
+           if (rotated->right != nullptr) rotated->right->parent = rotated;
            return rotated;
        }
 
@@ -250,9 +231,7 @@ template<
    }
 
    Node* findNode(Node* node, const Key& key) const {
-       if (node == nullptr) {
-           return nullptr;
-       }
+       if (node == nullptr) return nullptr;
        if (comp(key, node->data.first)) {
            return findNode(node->left, key);
        } else if (comp(node->data.first, key)) {
@@ -263,9 +242,7 @@ template<
    }
 
    Node* copyTree(Node* otherNode, Node* parent) {
-       if (otherNode == nullptr) {
-           return nullptr;
-       }
+       if (otherNode == nullptr) return nullptr;
        Node* newNode = new Node(otherNode->data);
        newNode->parent = parent;
        newNode->left = copyTree(otherNode->left, newNode);
@@ -275,9 +252,7 @@ template<
    }
 
    void deleteTree(Node* node) {
-       if (node == nullptr) {
-           return;
-       }
+       if (node == nullptr) return;
        deleteTree(node->left);
        deleteTree(node->right);
        delete node;
@@ -535,6 +510,9 @@ template<
        Node* insertedNode = nullptr;
        bool success = false;
        root = insertNode(root, value, nullptr, insertedNode, success);
+       if (root != nullptr) {
+           root->parent = nullptr;
+       }
        return pair<iterator, bool>(iterator(insertedNode, this), success);
    }
 
@@ -543,7 +521,6 @@ template<
            throw invalid_iterator();
        }
        root = deleteNode(root, pos.node->data.first);
-       // Update root's parent to nullptr (if root exists)
        if (root != nullptr) {
            root->parent = nullptr;
        }
