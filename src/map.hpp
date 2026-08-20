@@ -42,6 +42,111 @@ template<
        return (node == nullptr) ? 0 : getHeight(node->left) - getHeight(node->right);
    }
 
+   void swapNodes(Node* a, Node* b) {
+       if (a == b) return;
+
+       // Update root if necessary
+       if (a->parent == nullptr) {
+           root = b;
+       } else if (a->parent->left == a) {
+           a->parent->left = b;
+       } else {
+           a->parent->right = b;
+       }
+
+       if (b->parent == nullptr) {
+           root = a;
+       } else if (b->parent->left == b) {
+           b->parent->left = a;
+       } else {
+           b->parent->right = a;
+       }
+
+       // Handle case where a is parent of b
+       if (a->left == b) {
+           a->left = b->left;
+           b->left = a;
+           if (a->left != nullptr) {
+               a->left->parent = a;
+           }
+           Node* tempRight = a->right;
+           a->right = b->right;
+           b->right = tempRight;
+           if (a->right != nullptr) {
+               a->right->parent = a;
+           }
+           if (b->right != nullptr) {
+               b->right->parent = b;
+           }
+       } else if (a->right == b) {
+           a->right = b->right;
+           b->right = a;
+           if (a->right != nullptr) {
+               a->right->parent = a;
+           }
+           Node* tempLeft = a->left;
+           a->left = b->left;
+           b->left = tempLeft;
+           if (a->left != nullptr) {
+               a->left->parent = a;
+           }
+           if (b->left != nullptr) {
+               b->left->parent = b;
+           }
+       } else if (b->left == a) {
+           b->left = a->left;
+           a->left = b;
+           if (b->left != nullptr) {
+               b->left->parent = b;
+           }
+           Node* tempRight = b->right;
+           b->right = a->right;
+           a->right = tempRight;
+           if (b->right != nullptr) {
+               b->right->parent = b;
+           }
+           if (a->right != nullptr) {
+               a->right->parent = a;
+           }
+       } else if (b->right == a) {
+           b->right = a->right;
+           a->right = b;
+           if (b->right != nullptr) {
+               b->right->parent = b;
+           }
+           Node* tempLeft = b->left;
+           b->left = a->left;
+           a->left = tempLeft;
+           if (b->left != nullptr) {
+               b->left->parent = b;
+           }
+           if (a->left != nullptr) {
+               a->left->parent = a;
+           }
+       } else {
+           // No parent-child relationship
+           Node* tempLeft = a->left;
+           Node* tempRight = a->right;
+           Node* tempParent = a->parent;
+           int tempHeight = a->height;
+
+           a->left = b->left;
+           a->right = b->right;
+           a->parent = b->parent;
+           a->height = b->height;
+
+           b->left = tempLeft;
+           b->right = tempRight;
+           b->parent = tempParent;
+           b->height = tempHeight;
+
+           if (a->left != nullptr) a->left->parent = a;
+           if (a->right != nullptr) a->right->parent = a;
+           if (b->left != nullptr) b->left->parent = b;
+           if (b->right != nullptr) b->right->parent = b;
+       }
+   }
+
    Node* rotateLeft(Node* z) {
        Node* y = z->right;
        Node* T2 = y->left;
@@ -150,6 +255,74 @@ template<
        return node;
    }
 
+   void updateHeightAndRebalance(Node* current) {
+       while (current != nullptr) {
+           current->height = 1 + std::max(getHeight(current->left), getHeight(current->right));
+           int balance = getBalance(current);
+           Node* nextParent = current->parent;
+
+           if (balance > 1 && getBalance(current->left) >= 0) {
+               Node* rotated = rotateRight(current);
+               if (rotated->parent != nullptr) {
+                   if (current == rotated->parent->left) {
+                       rotated->parent->left = rotated;
+                   } else {
+                       rotated->parent->right = rotated;
+                   }
+               } else {
+                   root = rotated;
+               }
+               current = rotated;
+           } else if (balance > 1 && getBalance(current->left) < 0) {
+               current->left = rotateLeft(current->left);
+               if (current->left != nullptr) {
+                   current->left->parent = current;
+               }
+               Node* rotated = rotateRight(current);
+               if (rotated->parent != nullptr) {
+                   if (current == rotated->parent->left) {
+                       rotated->parent->left = rotated;
+                   } else {
+                       rotated->parent->right = rotated;
+                   }
+               } else {
+                   root = rotated;
+               }
+               current = rotated;
+           } else if (balance < -1 && getBalance(current->right) <= 0) {
+               Node* rotated = rotateLeft(current);
+               if (rotated->parent != nullptr) {
+                   if (current == rotated->parent->left) {
+                       rotated->parent->left = rotated;
+                   } else {
+                       rotated->parent->right = rotated;
+                   }
+               } else {
+                   root = rotated;
+               }
+               current = rotated;
+           } else if (balance < -1 && getBalance(current->right) > 0) {
+               current->right = rotateRight(current->right);
+               if (current->right != nullptr) {
+                   current->right->parent = current;
+               }
+               Node* rotated = rotateLeft(current);
+               if (rotated->parent != nullptr) {
+                   if (current == rotated->parent->left) {
+                       rotated->parent->left = rotated;
+                   } else {
+                       rotated->parent->right = rotated;
+                   }
+               } else {
+                   root = rotated;
+               }
+               current = rotated;
+           }
+
+           current = nextParent;
+       }
+   }
+
    Node* deleteNode(Node* node, const Key& key) {
        if (node == nullptr) {
            return node;
@@ -171,60 +344,55 @@ template<
                if (temp == nullptr) {
                    temp = node;
                    node = nullptr;
+                   Node* parent = temp->parent;
+                   if (parent != nullptr) {
+                       if (parent->left == temp) {
+                           parent->left = nullptr;
+                       } else {
+                           parent->right = nullptr;
+                       }
+                   }
                    delete temp;
                    size_--;
+                   if (parent != nullptr) {
+                       updateHeightAndRebalance(parent);
+                   }
                } else {
                    temp->parent = node->parent;
                    Node* toDelete = node;
                    node = temp;
+                   Node* parent = toDelete->parent;
+                   if (parent != nullptr) {
+                       if (parent->left == toDelete) {
+                           parent->left = node;
+                       } else {
+                           parent->right = node;
+                       }
+                   }
                    delete toDelete;
                    size_--;
+                   updateHeightAndRebalance(node->parent != nullptr ? node->parent : node);
                }
            } else {
                Node* temp = findMin(node->right);
-               node->data.~value_type();
-               new (&node->data) value_type(temp->data);
-               node->right = deleteNode(node->right, temp->data.first);
-               if (node->right != nullptr) {
-                   node->right->parent = node;
+               swapNodes(node, temp);
+               // Now, node is in temp's original position (leaf, since temp was min of right subtree, so no left child)
+               // Delete node
+               Node* parent = node->parent;
+               if (parent != nullptr) {
+                   if (parent->left == node) {
+                       parent->left = nullptr;
+                   } else {
+                       parent->right = nullptr;
+                   }
                }
+               delete node;
+               size_--;
+               // temp is now in node's original position, update height and rebalance from parent
+               updateHeightAndRebalance(parent);
+               // Now, temp is the node that should be returned
+               node = temp;
            }
-       }
-
-       if (node == nullptr) {
-           return node;
-       }
-
-       node->height = 1 + std::max(getHeight(node->left), getHeight(node->right));
-       int balance = getBalance(node);
-
-       if (balance > 1 && getBalance(node->left) >= 0) {
-           Node* rotated = rotateRight(node);
-           if (rotated->left != nullptr) rotated->left->parent = rotated;
-           if (rotated->right != nullptr) rotated->right->parent = rotated;
-           return rotated;
-       }
-       if (balance > 1 && getBalance(node->left) < 0) {
-           node->left = rotateLeft(node->left);
-           if (node->left != nullptr) node->left->parent = node;
-           Node* rotated = rotateRight(node);
-           if (rotated->left != nullptr) rotated->left->parent = rotated;
-           if (rotated->right != nullptr) rotated->right->parent = rotated;
-           return rotated;
-       }
-       if (balance < -1 && getBalance(node->right) <= 0) {
-           Node* rotated = rotateLeft(node);
-           if (rotated->left != nullptr) rotated->left->parent = rotated;
-           if (rotated->right != nullptr) rotated->right->parent = rotated;
-           return rotated;
-       }
-       if (balance < -1 && getBalance(node->right) > 0) {
-           node->right = rotateRight(node->right);
-           if (node->right != nullptr) node->right->parent = node;
-           Node* rotated = rotateLeft(node);
-           if (rotated->left != nullptr) rotated->left->parent = rotated;
-           if (rotated->right != nullptr) rotated->right->parent = rotated;
-           return rotated;
        }
 
        return node;
